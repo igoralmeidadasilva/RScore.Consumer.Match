@@ -69,6 +69,10 @@ public sealed class MatchEventsWorker : BackgroundService
         {
             _logger.LogError(ex, "Error processing the message. The offset will NOT be committed.");
         }
+        finally
+        {
+            _consumer.Close();
+        }
     }
 
     private async Task ProcessEventAsync(

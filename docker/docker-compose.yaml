@@ -1,0 +1,40 @@
+services:
+  consumer-a:
+    build:
+      context: ..
+      dockerfile: ./docker/Dockerfile
+    container_name: consumer-a
+    environment:
+      - DOTNET_ENVIRONMENT=Development
+      - ConnectionStrings__Postgres=Host=postgres;Port=5432;Database=rscore;Username=postgres;Password=postgres;Include Error Detail=true;
+      - KafkaOptions__Host=kafka:29092
+    networks:
+      - rscore-network
+
+  consumer-b:
+    build:
+      context: ..
+      dockerfile: ./docker/Dockerfile
+    container_name: consumer-b
+    environment:
+      - DOTNET_ENVIRONMENT=Development
+      - ConnectionStrings__Postgres=Host=postgres;Port=5432;Database=rscore;Username=postgres;Password=postgres;Include Error Detail=true;
+      - KafkaOptions__Host=kafka:29092
+    networks:
+      - rscore-network
+
+  consumer-c:
+    build:
+      context: ..
+      dockerfile: ./docker/Dockerfile
+    container_name: consumer-c
+    environment:
+      - DOTNET_ENVIRONMENT=Development
+      - ConnectionStrings__Postgres=Host=postgres;Port=5432;Database=rscore;Username=postgres;Password=postgres;Include Error Detail=true;
+      - KafkaOptions__Host=kafka:29092
+    networks:
+      - rscore-network
+
+networks:
+  rscore-network:
+    driver: bridge
