@@ -1,0 +1,48 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using RScore.Consumer.Match.Core.Entities;
+
+namespace RScore.Consumer.Match.Infrastructure;
+
+internal sealed class MatchEventConfiguration : IEntityTypeConfiguration<MatchEvent>
+{
+    public void Configure(EntityTypeBuilder<MatchEvent> builder)
+    {
+        builder.ToTable("match_events");
+
+        builder.HasKey(x => x.EventId);
+
+        builder.Property(x => x.EventId)
+            .HasColumnName("event_id")
+            .IsRequired();
+        
+        builder.Property(x => x.ExternalEventId)
+            .HasColumnName("external_event_id")
+            .IsRequired();
+        
+        builder.Property(x => x.ExternalMatchId)
+            .HasColumnName("external_match_id")
+            .IsRequired();
+        
+        builder.Property(x => x.EventType)
+            .HasColumnName("event_type")
+            .HasConversion<string>()
+            .IsRequired();
+
+        builder.Property(x => x.Minute)
+            .HasColumnName("minute")
+            .IsRequired();
+
+        builder.Property(x => x.Payload)
+            .HasColumnName("payload")
+            .HasColumnType("jsonb")
+            .IsRequired();
+
+        builder.Property(x => x.ReceivedAt)
+            .HasColumnName("received_at")
+            .IsRequired();
+
+        builder.Property(x => x.Source)
+            .HasColumnName("source");
+    }
+}

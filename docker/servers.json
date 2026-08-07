@@ -1,0 +1,15 @@
+{
+    "Servers": {
+        "1": {
+            "Name": "RScore DB",
+            "Group": "Servers",
+            "Host": "postgres",
+            "Port": 5432,
+            "MaintenanceDB": "rscore",
+            "Username": "postgres",
+            "Password": "postgres",
+            "SSLMode": "prefer",
+            "PassFile": "/tmp/pgpass"
+        }
+    }
+}
