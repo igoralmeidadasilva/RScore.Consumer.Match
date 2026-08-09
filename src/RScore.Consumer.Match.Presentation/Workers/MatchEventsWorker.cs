@@ -1,11 +1,11 @@
 using System.Text.Json;
 using Confluent.Kafka;
 using Microsoft.Extensions.Options;
-using RScore.Consumer.Match.Core.Entities;
-using RScore.Consumer.Match.Infrastructure;
-using RScore.Consumer.Match.Options;
+using RScore.Consumer.Match.Application.Core.Options;
+using RScore.Consumer.Match.Domain.Features.Entities;
+using RScore.Consumer.Match.Infrastructure.Features.Data;
 
-namespace RScore.Consumer.Match.Workers;
+namespace RScore.Consumer.Match.Presentation.Workers;
 
 public sealed class MatchEventsWorker : BackgroundService
 {
@@ -90,8 +90,7 @@ public sealed class MatchEventsWorker : BackgroundService
             return;
         }
 
-        dbContext.MatchEvents.Add(matchEvent);
-
+        dbContext.MatchEvents!.Add(matchEvent);
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 }

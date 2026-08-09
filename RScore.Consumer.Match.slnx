@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/RScore.Consumer.Match.Application/RScore.Consumer.Match.Application.csproj" />
+    <Project Path="src/RScore.Consumer.Match.Domain/RScore.Consumer.Match.Domain.csproj" />
+    <Project Path="src/RScore.Consumer.Match.Infrastructure/RScore.Consumer.Match.Infrastructure.csproj" />
+    <Project Path="src/RScore.Consumer.Match.Presentation/RScore.Consumer.Match.Presentation.csproj" />
+  </Folder>
+</Solution>

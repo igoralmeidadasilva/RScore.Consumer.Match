@@ -1,4 +1,4 @@
-namespace RScore.Consumer.Match.Core.Enums;
+namespace RScore.Consumer.Match.Domain.Core.Enums;
 
 public enum EventType
 {

@@ -1,6 +1,6 @@
-using RScore.Consumer.Match.Core.Enums;
+using RScore.Consumer.Match.Domain.Core.Enums;
 
-namespace RScore.Consumer.Match.Core.Entities;
+namespace RScore.Consumer.Match.Domain.Features.Entities;
 
 public sealed record MatchEvent
 {

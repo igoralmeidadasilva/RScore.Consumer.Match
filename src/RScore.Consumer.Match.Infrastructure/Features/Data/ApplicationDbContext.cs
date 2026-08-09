@@ -1,15 +1,11 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
-using RScore.Consumer.Match.Core.Entities;
+using RScore.Consumer.Match.Domain.Features.Entities;
 
-namespace RScore.Consumer.Match.Infrastructure;
+namespace RScore.Consumer.Match.Infrastructure.Features.Data;
 
 public sealed class ApplicationDbContext : DbContext
 {
-    public DbSet<MatchEvent> MatchEvents { get; set; }
+    public DbSet<MatchEvent>? MatchEvents { get; set; }
 
     public ApplicationDbContext(DbContextOptions options) : base(options)
     {

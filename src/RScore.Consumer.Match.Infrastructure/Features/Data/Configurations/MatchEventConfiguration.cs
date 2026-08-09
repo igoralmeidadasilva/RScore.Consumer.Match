@@ -1,8 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using RScore.Consumer.Match.Core.Entities;
+using RScore.Consumer.Match.Domain.Features.Entities;
 
-namespace RScore.Consumer.Match.Infrastructure;
+namespace RScore.Consumer.Match.Infrastructure.Features.Data.Configurations;
 
 internal sealed class MatchEventConfiguration : IEntityTypeConfiguration<MatchEvent>
 {

@@ -1,4 +1,4 @@
-namespace RScore.Consumer.Match.Options;
+namespace RScore.Consumer.Match.Application.Core.Options;
 
 public sealed record KafkaOptions
 {
