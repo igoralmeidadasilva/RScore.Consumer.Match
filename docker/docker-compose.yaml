@@ -37,4 +37,5 @@ services:
 
 networks:
   rscore-network:
+    name: rscore-network
     driver: bridge
