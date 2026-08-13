@@ -5,9 +5,10 @@ services:
       dockerfile: ./docker/Dockerfile
     container_name: consumer-a
     environment:
-      - DOTNET_ENVIRONMENT=Development
-      - ConnectionStrings__Postgres=Host=postgres;Port=5432;Database=rscore;Username=postgres;Password=postgres;Include Error Detail=true;
-      - KafkaOptions__Host=kafka:29092
+      - DOTNET_ENVIRONMENT=${DOTNET_ENVIRONMENT}
+      - Serilog__WriteTo__1__Args__endpoint=${OTEL_EXPORTER_OTLP_ENDPOINT}
+      - ConnectionStrings__Postgres=${POSTGRES_CONNECTION_STRING}
+      - KafkaOptions__Host=${KAFKA_HOST}
     networks:
       - rscore-network
 
@@ -17,9 +18,10 @@ services:
       dockerfile: ./docker/Dockerfile
     container_name: consumer-b
     environment:
-      - DOTNET_ENVIRONMENT=Development
-      - ConnectionStrings__Postgres=Host=postgres;Port=5432;Database=rscore;Username=postgres;Password=postgres;Include Error Detail=true;
-      - KafkaOptions__Host=kafka:29092
+      - DOTNET_ENVIRONMENT=${DOTNET_ENVIRONMENT}
+      - Serilog__WriteTo__1__Args__endpoint=${OTEL_EXPORTER_OTLP_ENDPOINT}
+      - ConnectionStrings__Postgres=${POSTGRES_CONNECTION_STRING}
+      - KafkaOptions__Host=${KAFKA_HOST}
     networks:
       - rscore-network
 
@@ -29,9 +31,10 @@ services:
       dockerfile: ./docker/Dockerfile
     container_name: consumer-c
     environment:
-      - DOTNET_ENVIRONMENT=Development
-      - ConnectionStrings__Postgres=Host=postgres;Port=5432;Database=rscore;Username=postgres;Password=postgres;Include Error Detail=true;
-      - KafkaOptions__Host=kafka:29092
+      - DOTNET_ENVIRONMENT=${DOTNET_ENVIRONMENT}
+      - Serilog__WriteTo__1__Args__endpoint=${OTEL_EXPORTER_OTLP_ENDPOINT}
+      - ConnectionStrings__Postgres=${POSTGRES_CONNECTION_STRING}
+      - KafkaOptions__Host=${KAFKA_HOST}
     networks:
       - rscore-network
 
