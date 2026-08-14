@@ -19,6 +19,10 @@ public static class DependencyInjection
             .Bind(configuration.GetSection(nameof(KafkaOptions)))
             .ValidateOnStart();
 
+        services.AddOptions<OpenTelemetryOptions>()
+            .Bind(configuration.GetSection(nameof(OpenTelemetryOptions)))
+            .ValidateOnStart();
+
         return services;
     }
 }

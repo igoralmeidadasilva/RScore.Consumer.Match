@@ -1,28 +1,32 @@
+using System.Diagnostics;
 using System.Text.Json;
 using Confluent.Kafka;
 using Microsoft.Extensions.Options;
 using RScore.Consumer.Match.Application.Core.Options;
 using RScore.Consumer.Match.Domain.Features.Entities;
+using RScore.Consumer.Match.Infrastructure;
 using RScore.Consumer.Match.Infrastructure.Features.Data;
+using RScore.Consumer.Match.Infrastructure.Features.Data.Extensions;
 
 namespace RScore.Consumer.Match.Presentation.Workers;
 
 public sealed class MatchEventsWorker : BackgroundService
 {
+    private static readonly ActivitySource ActivitySource = new(Constants.Telemetry.SERVICE_NAME);
     private readonly ILogger<MatchEventsWorker> _logger;
     private readonly IConsumer<string, string> _consumer;
-    private readonly KafkaOptions _options;
+    private readonly KafkaOptions _kafkaOptions;
     private readonly IServiceScopeFactory _serviceScopeFactory;
 
     public MatchEventsWorker(
         ILogger<MatchEventsWorker> logger,
         IConsumer<string, string> consumer,
-        IOptions<KafkaOptions> options,
+        IOptions<KafkaOptions> kafkaOptions,
         IServiceScopeFactory serviceScopeFactory)
     {
         _logger = logger;
         _consumer = consumer;
-        _options = options.Value;
+        _kafkaOptions = kafkaOptions.Value;
         _serviceScopeFactory = serviceScopeFactory;
     }
 
@@ -39,21 +43,19 @@ public sealed class MatchEventsWorker : BackgroundService
     {
         using var scope = _serviceScopeFactory.CreateScope();
         ApplicationDbContext dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        _consumer.Subscribe(_options.MatchEventsTopic);
+        _consumer.Subscribe(_kafkaOptions.MatchEventsTopic);
         try
         {
             while (!stoppingToken.IsCancellationRequested)
             {
-                var consumeResult = _consumer.Consume(stoppingToken);
+                ConsumeResult<string, string> consumeResult = _consumer.Consume(stoppingToken);
                 if (consumeResult != null)
                 {
                     _logger.LogDebug("Received message: {Message}", consumeResult.Message.Value);
                     await ProcessEventAsync(
                         dbContext,
-                        consumeResult.Message.Key,
-                        consumeResult.Message.Value,
+                        consumeResult,
                         stoppingToken);
-                    _consumer.Commit(consumeResult);
                 }
             }
         }
@@ -77,20 +79,39 @@ public sealed class MatchEventsWorker : BackgroundService
 
     private async Task ProcessEventAsync(
         ApplicationDbContext dbContext,
-        string key,
-        string payload,
+        ConsumeResult<string, string> consumeResult,
         CancellationToken cancellationToken)
     {
-        var matchEvent = JsonSerializer.Deserialize<MatchEvent>(payload);
-        _logger.LogInformation("Processing match event with key: {Key}, payload: {Payload}", key, payload);
+        var propagationContext = consumeResult.Message.Headers.ExtractTraceContext();
+
+        using var activity = ActivitySource.StartActivity(
+            "ConsumeEvent",
+            ActivityKind.Consumer,
+            parentContext: propagationContext.ActivityContext);
+
+        activity?.SetTag("messaging.system", "kafka");
+        activity?.SetTag("messaging.destination", consumeResult.Topic);
+        activity?.SetTag("messaging.kafka.consumer_group", _kafkaOptions.MatchEventsTopic);
+        activity?.SetTag("messaging.kafka.partition", consumeResult.Partition.Value);
+        activity?.SetTag("messaging.kafka.offset", consumeResult.Offset.Value);
+
+        var matchEvent = JsonSerializer.Deserialize<MatchEvent>(consumeResult.Message.Value);
 
         if (matchEvent is null)
         {
-            _logger.LogError("Unable to deserialize the object");
+            _logger.LogWarning("Null payload received for key {Key}", consumeResult.Message.Key);
+
             return;
         }
 
+        activity?.SetTag("event.type", matchEvent.EventType);
+        activity?.SetTag("match.external_id", matchEvent.ExternalMatchId);
+
+        _logger.LogInformation("Processing match event with key: {Key}, payload: {Payload}", consumeResult.Message.Key, consumeResult.Message.Value);
+        
         dbContext.MatchEvents!.Add(matchEvent);
         await dbContext.SaveChangesAsync(cancellationToken);
+
+        _consumer.Commit(consumeResult);
     }
 }
