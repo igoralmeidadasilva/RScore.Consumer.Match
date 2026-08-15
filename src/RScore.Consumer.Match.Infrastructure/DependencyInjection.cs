@@ -4,9 +4,13 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using OpenTelemetry;
+using OpenTelemetry.Context.Propagation;
+using OpenTelemetry.Exporter;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using RScore.Consumer.Match.Application.Core;
 using RScore.Consumer.Match.Application.Core.Options;
 using RScore.Consumer.Match.Domain.Core.Interfaces;
 using RScore.Consumer.Match.Domain.Features.Entities.MatchEvents;
@@ -21,8 +25,8 @@ public static class DependencyInjection
     {
         services.ConfigureDbContext(configuration)
                 .ConfigureRepositories()
-                .ConfigureTopic();
-                // .ConfigureTelemetry();
+                .ConfigureTopic()
+                .ConfigureTelemetry();
 
         return services;
     }
@@ -62,6 +66,12 @@ public static class DependencyInjection
     {
         var openTelemetryOptions = services.BuildServiceProvider().GetRequiredService<IOptions<OpenTelemetryOptions>>().Value;
 
+        Sdk.SetDefaultTextMapPropagator(new CompositeTextMapPropagator(
+        [
+            new TraceContextPropagator(),
+            new BaggagePropagator()
+        ]));
+
         services.AddOpenTelemetry()
             .ConfigureResource(resource =>
             {
@@ -73,15 +83,19 @@ public static class DependencyInjection
                 resource.AddAttributes(new Dictionary<string, object>
                 {
                     ["deployment.environment"] = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") ?? "Development",
-                    ["host.name"] = Environment.MachineName
+                    ["host.name"] = Environment.MachineName 
                 });
             })
             .WithTracing(tracing => tracing
-                .AddSource(openTelemetryOptions.ServiceName)
-                .AddOtlpExporter(otlp => otlp.Endpoint = new Uri(openTelemetryOptions.Endpoint)))
-            .WithMetrics(metrics => metrics
-                .AddRuntimeInstrumentation()
-                .AddOtlpExporter(otlp => otlp.Endpoint = new Uri(openTelemetryOptions.Endpoint)));
+                .AddSource(Telemetry.SourceName)
+                .AddOtlpExporter(otlp =>
+                {
+                    otlp.Endpoint = new Uri(openTelemetryOptions.Endpoint);
+                    otlp.Protocol = OtlpExportProtocol.Grpc;
+                }));
+            // .WithMetrics(metrics => metrics
+            //     .AddRuntimeInstrumentation()
+            //     .AddOtlpExporter(otlp => otlp.Endpoint = new Uri(openTelemetryOptions.Endpoint)));
         
         return services;
     }

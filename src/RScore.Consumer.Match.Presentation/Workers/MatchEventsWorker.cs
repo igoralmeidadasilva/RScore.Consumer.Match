@@ -1,6 +1,9 @@
+using System.Diagnostics;
 using System.Text.Json;
 using Confluent.Kafka;
 using Microsoft.Extensions.Options;
+using RScore.Consumer.Match.Application.Core;
+using RScore.Consumer.Match.Application.Core.Extensions;
 using RScore.Consumer.Match.Application.Core.Options;
 using RScore.Consumer.Match.Application.Features.MatchConsumer;
 
@@ -39,6 +42,10 @@ internal sealed class MatchEventsWorker : BackgroundService
         {
             while (!stoppingToken.IsCancellationRequested)
             {
+                using var activity = Telemetry.Source.StartActivity(
+                    Telemetry.Activities.ConsumeCycle,
+                    ActivityKind.Consumer);
+
                 ConsumeResult<string, string>? consumeResult = null;
 
                 try
@@ -50,24 +57,37 @@ internal sealed class MatchEventsWorker : BackgroundService
                         await ProcessConsumeResult(consumeResult, stoppingToken);
                     }
                 }
-                catch (OperationCanceledException)
+                catch (OperationCanceledException ex)
                 {
+                    activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+                    activity?.AddException(ex);
+
                     _logger.LogInformation("Cancellation requested for topic {Topic}. Exiting consumption loop...", _kafkaOptions.MatchEventsTopic);
                     break;
                 }
                 catch (ConsumeException ex)
                 {
+                    activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+                    activity?.AddException(ex);
+
                     _logger.LogError(ex, "Kafka consumption error on topic {Topic}. ErrorCode: {ErrorCode}, Reason: {Reason}", 
-                        _kafkaOptions.MatchEventsTopic, ex.Error.Code, ex.Error.Reason);
+                        _kafkaOptions.MatchEventsTopic,
+                        ex.Error.Code,
+                        ex.Error.Reason);
 
                     if (ex.Error.IsFatal)
                     {
+                        activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+
                         _logger.LogCritical("Fatal error encountered in Kafka consumer for topic {Topic}. Stopping worker.", _kafkaOptions.MatchEventsTopic);
                         break;
                     }
                 }
                 catch (JsonException ex)
                 {
+                    activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+                    activity?.AddException(ex);
+
                     _logger.LogError(ex, "Failed to deserialize message payload from topic {Topic}, Partition: {Partition}, Offset: {Offset}. Raw Value: {Payload}", 
                         consumeResult?.Topic ?? _kafkaOptions.MatchEventsTopic, 
                         consumeResult?.Partition.Value, 
@@ -77,6 +97,9 @@ internal sealed class MatchEventsWorker : BackgroundService
                 }
                 catch (Exception ex)
                 {
+                    activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+                    activity?.AddException(ex);
+
                     _logger.LogError(ex, "Unhandled exception processing message from topic {Topic}, Partition: {Partition}, Offset: {Offset}", 
                         consumeResult?.Topic ?? _kafkaOptions.MatchEventsTopic, 
                         consumeResult?.Partition.Value, 
@@ -94,6 +117,17 @@ internal sealed class MatchEventsWorker : BackgroundService
 
     private async Task ProcessConsumeResult(ConsumeResult<string, string> consumeResult, CancellationToken stoppingToken)
     {
+        var propagationContext = consumeResult.Message.Headers.ExtractTraceContext();
+
+        // Consumer, não Internal: este é o span de fronteira, linkado ao
+        // contexto de trace extraído do header Kafka (publicado pelo producer).
+        using var span = Telemetry.Source.StartActivity(
+            Telemetry.Activities.ConsumeProcessResult,
+            ActivityKind.Consumer,
+            parentContext: propagationContext.ActivityContext);
+
+        span?.SetTag(Telemetry.Tags.ExternalMatchId, consumeResult.Message.Key);
+
         _logger.LogDebug("Processing message from topic {Topic}, Partition: {Partition}, Offset: {Offset}",
             consumeResult.Topic,
             consumeResult.Partition.Value,
@@ -102,11 +136,11 @@ internal sealed class MatchEventsWorker : BackgroundService
         using (var scope = _scopeFactory.CreateScope())
         {
             var handler = scope.ServiceProvider.GetRequiredService<IMatchConsumerHandler>();
-
             var matchConsumerRequest = JsonSerializer.Deserialize<MatchConsumerRequest>(consumeResult.Message.Value);
-
             await handler.ExecuteAsync(matchConsumerRequest!, stoppingToken);
         }
+
+        span?.SetStatus(ActivityStatusCode.Ok);
 
         _consumer.Commit(consumeResult);
     }

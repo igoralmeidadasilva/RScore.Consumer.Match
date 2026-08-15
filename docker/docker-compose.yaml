@@ -9,6 +9,7 @@ services:
       - Serilog__WriteTo__1__Args__endpoint=${OTEL_EXPORTER_OTLP_ENDPOINT}
       - ConnectionStrings__Postgres=${POSTGRES_CONNECTION_STRING}
       - KafkaOptions__Host=${KAFKA_HOST}
+      - OpenTelemetryOptions__Endpoint=${OTEL_EXPORTER_OTLP_ENDPOINT}
     networks:
       - rscore-network
 
@@ -22,6 +23,7 @@ services:
       - Serilog__WriteTo__1__Args__endpoint=${OTEL_EXPORTER_OTLP_ENDPOINT}
       - ConnectionStrings__Postgres=${POSTGRES_CONNECTION_STRING}
       - KafkaOptions__Host=${KAFKA_HOST}
+      - OpenTelemetryOptions__Endpoint=${OTEL_EXPORTER_OTLP_ENDPOINT}
     networks:
       - rscore-network
 
@@ -35,6 +37,7 @@ services:
       - Serilog__WriteTo__1__Args__endpoint=${OTEL_EXPORTER_OTLP_ENDPOINT}
       - ConnectionStrings__Postgres=${POSTGRES_CONNECTION_STRING}
       - KafkaOptions__Host=${KAFKA_HOST}
+      - OpenTelemetryOptions__Endpoint=${OTEL_EXPORTER_OTLP_ENDPOINT}
     networks:
       - rscore-network
 
