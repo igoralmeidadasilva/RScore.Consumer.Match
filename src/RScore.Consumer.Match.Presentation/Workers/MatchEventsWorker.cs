@@ -1,116 +1,112 @@
-using System.Diagnostics;
 using System.Text.Json;
 using Confluent.Kafka;
 using Microsoft.Extensions.Options;
 using RScore.Consumer.Match.Application.Core.Options;
-using RScore.Consumer.Match.Domain.Features.Entities;
-using RScore.Consumer.Match.Infrastructure;
-using RScore.Consumer.Match.Infrastructure.Features.Data;
-using RScore.Consumer.Match.Infrastructure.Features.Data.Extensions;
+using RScore.Consumer.Match.Application.Features.MatchConsumer;
 
 namespace RScore.Consumer.Match.Presentation.Workers;
 
-public sealed class MatchEventsWorker : BackgroundService
+internal sealed class MatchEventsWorker : BackgroundService
 {
-    private static readonly ActivitySource ActivitySource = new(Constants.Telemetry.SERVICE_NAME);
-    private readonly ILogger<MatchEventsWorker> _logger;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly IConsumer<string, string> _consumer;
     private readonly KafkaOptions _kafkaOptions;
-    private readonly IServiceScopeFactory _serviceScopeFactory;
+    private readonly ILogger<MatchEventsWorker> _logger;
 
-    public MatchEventsWorker(
-        ILogger<MatchEventsWorker> logger,
-        IConsumer<string, string> consumer,
-        IOptions<KafkaOptions> kafkaOptions,
-        IServiceScopeFactory serviceScopeFactory)
+    public MatchEventsWorker(ILogger<MatchEventsWorker> logger, IConsumer<string, string> consumer, IOptions<KafkaOptions> kafkaOptions, IServiceScopeFactory scopeFactory)
     {
         _logger = logger;
         _consumer = consumer;
         _kafkaOptions = kafkaOptions.Value;
-        _serviceScopeFactory = serviceScopeFactory;
+        _scopeFactory = scopeFactory;
     }
 
     protected override Task ExecuteAsync(CancellationToken stoppingToken)
     {
         return Task.Factory.StartNew(
-            () => StartConsumer(stoppingToken),
+            () => StartConsumerAsync(stoppingToken),
             stoppingToken,
             TaskCreationOptions.LongRunning,
             TaskScheduler.Default).Unwrap();
     }
 
-    private async Task StartConsumer(CancellationToken stoppingToken)
+    private async Task StartConsumerAsync(CancellationToken stoppingToken)
     {
-        using var scope = _serviceScopeFactory.CreateScope();
-        ApplicationDbContext dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         _consumer.Subscribe(_kafkaOptions.MatchEventsTopic);
+        _logger.LogInformation("Subscribed to topic {Topic}. Starting consumption loop...", _kafkaOptions.MatchEventsTopic);
+
         try
         {
             while (!stoppingToken.IsCancellationRequested)
             {
-                ConsumeResult<string, string> consumeResult = _consumer.Consume(stoppingToken);
-                if (consumeResult != null)
+                ConsumeResult<string, string>? consumeResult = null;
+
+                try
                 {
-                    _logger.LogDebug("Received message: {Message}", consumeResult.Message.Value);
-                    await ProcessEventAsync(
-                        dbContext,
-                        consumeResult,
-                        stoppingToken);
+                    consumeResult = _consumer.Consume(stoppingToken);
+
+                    if (consumeResult?.Message is not null)
+                    {
+                        await ProcessConsumeResult(consumeResult, stoppingToken);
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    _logger.LogInformation("Cancellation requested for topic {Topic}. Exiting consumption loop...", _kafkaOptions.MatchEventsTopic);
+                    break;
+                }
+                catch (ConsumeException ex)
+                {
+                    _logger.LogError(ex, "Kafka consumption error on topic {Topic}. ErrorCode: {ErrorCode}, Reason: {Reason}", 
+                        _kafkaOptions.MatchEventsTopic, ex.Error.Code, ex.Error.Reason);
+
+                    if (ex.Error.IsFatal)
+                    {
+                        _logger.LogCritical("Fatal error encountered in Kafka consumer for topic {Topic}. Stopping worker.", _kafkaOptions.MatchEventsTopic);
+                        break;
+                    }
+                }
+                catch (JsonException ex)
+                {
+                    _logger.LogError(ex, "Failed to deserialize message payload from topic {Topic}, Partition: {Partition}, Offset: {Offset}. Raw Value: {Payload}", 
+                        consumeResult?.Topic ?? _kafkaOptions.MatchEventsTopic, 
+                        consumeResult?.Partition.Value, 
+                        consumeResult?.Offset.Value, 
+                        consumeResult?.Message?.Value);
+
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Unhandled exception processing message from topic {Topic}, Partition: {Partition}, Offset: {Offset}", 
+                        consumeResult?.Topic ?? _kafkaOptions.MatchEventsTopic, 
+                        consumeResult?.Partition.Value, 
+                        consumeResult?.Offset.Value);
                 }
             }
         }
-        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-        {
-            _logger.LogInformation("Match events worker is stopping due to cancellation.");
-        }
-        catch (ConsumeException ex)
-        {
-            _logger.LogError(ex, "Error consuming message");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error processing the message. The offset will NOT be committed.");
-        }
         finally
         {
+            _logger.LogInformation("Closing Kafka consumer for topic {Topic} to leave consumer group gracefully...", _kafkaOptions.MatchEventsTopic);
+            
             _consumer.Close();
         }
     }
 
-    private async Task ProcessEventAsync(
-        ApplicationDbContext dbContext,
-        ConsumeResult<string, string> consumeResult,
-        CancellationToken cancellationToken)
+    private async Task ProcessConsumeResult(ConsumeResult<string, string> consumeResult, CancellationToken stoppingToken)
     {
-        var propagationContext = consumeResult.Message.Headers.ExtractTraceContext();
+        _logger.LogDebug("Processing message from topic {Topic}, Partition: {Partition}, Offset: {Offset}",
+            consumeResult.Topic,
+            consumeResult.Partition.Value,
+            consumeResult.Offset.Value);
 
-        using var activity = ActivitySource.StartActivity(
-            "ConsumeEvent",
-            ActivityKind.Consumer,
-            parentContext: propagationContext.ActivityContext);
-
-        activity?.SetTag("messaging.system", "kafka");
-        activity?.SetTag("messaging.destination", consumeResult.Topic);
-        activity?.SetTag("messaging.kafka.consumer_group", _kafkaOptions.MatchEventsTopic);
-        activity?.SetTag("messaging.kafka.partition", consumeResult.Partition.Value);
-        activity?.SetTag("messaging.kafka.offset", consumeResult.Offset.Value);
-
-        var matchEvent = JsonSerializer.Deserialize<MatchEvent>(consumeResult.Message.Value);
-
-        if (matchEvent is null)
+        using (var scope = _scopeFactory.CreateScope())
         {
-            _logger.LogWarning("Null payload received for key {Key}", consumeResult.Message.Key);
+            var handler = scope.ServiceProvider.GetRequiredService<IMatchConsumerHandler>();
 
-            return;
+            var matchConsumerRequest = JsonSerializer.Deserialize<MatchConsumerRequest>(consumeResult.Message.Value);
+
+            await handler.ExecuteAsync(matchConsumerRequest!, stoppingToken);
         }
-
-        activity?.SetTag("event.type", matchEvent.EventType);
-        activity?.SetTag("match.external_id", matchEvent.ExternalMatchId);
-
-        _logger.LogInformation("Processing match event with key: {Key}, payload: {Payload}", consumeResult.Message.Key, consumeResult.Message.Value);
-        
-        dbContext.MatchEvents!.Add(matchEvent);
-        await dbContext.SaveChangesAsync(cancellationToken);
 
         _consumer.Commit(consumeResult);
     }

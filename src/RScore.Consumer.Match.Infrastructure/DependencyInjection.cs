@@ -1,3 +1,4 @@
+using System.Reflection;
 using Confluent.Kafka;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -7,7 +8,10 @@ using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using RScore.Consumer.Match.Application.Core.Options;
+using RScore.Consumer.Match.Domain.Core.Interfaces;
+using RScore.Consumer.Match.Domain.Features.Entities.MatchEvents;
 using RScore.Consumer.Match.Infrastructure.Features.Data;
+using RScore.Consumer.Match.Infrastructure.Features.Repositories;
 
 namespace RScore.Consumer.Match.Infrastructure;
 
@@ -16,8 +20,9 @@ public static class DependencyInjection
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
         services.ConfigureDbContext(configuration)
-                .ConfigureTopic()
-                .ConfigureTelemetry();
+                .ConfigureRepositories()
+                .ConfigureTopic();
+                // .ConfigureTelemetry();
 
         return services;
     }
@@ -27,6 +32,7 @@ public static class DependencyInjection
         services.AddDbContext<ApplicationDbContext>(options =>
         {
             options.UseNpgsql(configuration.GetConnectionString("Postgres"));
+            options.EnableSensitiveDataLogging();
         });
         
         return services;
@@ -57,14 +63,35 @@ public static class DependencyInjection
         var openTelemetryOptions = services.BuildServiceProvider().GetRequiredService<IOptions<OpenTelemetryOptions>>().Value;
 
         services.AddOpenTelemetry()
-            .ConfigureResource(resource => resource.AddService(Constants.Telemetry.SERVICE_NAME))
+            .ConfigureResource(resource =>
+            {
+                resource.AddService(
+                    serviceName: openTelemetryOptions.ServiceName,
+                    serviceVersion: Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "1.0.0",
+                    serviceInstanceId: Environment.MachineName);
+
+                resource.AddAttributes(new Dictionary<string, object>
+                {
+                    ["deployment.environment"] = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") ?? "Development",
+                    ["host.name"] = Environment.MachineName
+                });
+            })
             .WithTracing(tracing => tracing
-                .AddSource(Constants.Telemetry.SERVICE_NAME)
+                .AddSource(openTelemetryOptions.ServiceName)
                 .AddOtlpExporter(otlp => otlp.Endpoint = new Uri(openTelemetryOptions.Endpoint)))
             .WithMetrics(metrics => metrics
                 .AddRuntimeInstrumentation()
                 .AddOtlpExporter(otlp => otlp.Endpoint = new Uri(openTelemetryOptions.Endpoint)));
         
+        return services;
+    }
+
+    private static IServiceCollection ConfigureRepositories(this IServiceCollection services)
+    {
+        services.AddScoped<IUnitOfWork, UnitOfWork>();
+
+        services.AddScoped<IMatchEventsRepository, MatchEventsRepository>();
+
         return services;
     }
 }

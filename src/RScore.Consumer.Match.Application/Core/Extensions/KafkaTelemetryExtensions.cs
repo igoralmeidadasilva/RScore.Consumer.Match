@@ -2,7 +2,7 @@ using System.Text;
 using Confluent.Kafka;
 using OpenTelemetry.Context.Propagation;
 
-namespace RScore.Consumer.Match.Infrastructure.Features.Data.Extensions;
+namespace RScore.Consumer.Match.Application.Core.Extensions;
 
 public static class KafkaTelemetryExtensions
 {

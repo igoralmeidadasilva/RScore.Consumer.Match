@@ -4,7 +4,7 @@ namespace RScore.Consumer.Match.Domain.Features.Entities;
 
 public sealed record MatchEvent
 {
-    public Guid EventId { get; set; }
+    public Guid Id { get; set; }
     public string ExternalEventId { get; set; } = string.Empty;
     public string ExternalMatchId { get; set; } = string.Empty;
     public EventType EventType { get; set; }
@@ -21,7 +21,6 @@ public sealed record MatchEvent
     public MatchEvent() { }
 
     public MatchEvent(
-        Guid eventId,
         string externalEventId,
         string externalMatchId,
         EventType eventType,
@@ -30,7 +29,7 @@ public sealed record MatchEvent
         DateTime receivedAt,
         string source)
     {
-        EventId = eventId;
+        Id = Guid.NewGuid();
         ExternalEventId = externalEventId;
         ExternalMatchId = externalMatchId;
         EventType = eventType;

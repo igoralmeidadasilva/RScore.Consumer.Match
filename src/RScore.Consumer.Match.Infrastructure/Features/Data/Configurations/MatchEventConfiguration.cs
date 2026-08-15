@@ -10,10 +10,10 @@ internal sealed class MatchEventConfiguration : IEntityTypeConfiguration<MatchEv
     {
         builder.ToTable("match_events");
 
-        builder.HasKey(x => x.EventId);
+        builder.HasKey(x => x.Id);
 
-        builder.Property(x => x.EventId)
-            .HasColumnName("event_id")
+        builder.Property(x => x.Id)
+            .HasColumnName("id")
             .IsRequired();
         
         builder.Property(x => x.ExternalEventId)
