@@ -1,9 +1,9 @@
 services:
-  consumer-a:
+  consumer-match-event-a:
     build:
       context: ..
       dockerfile: ./docker/Dockerfile
-    container_name: consumer-a
+    container_name: consumer-match-event-a
     environment:
       - DOTNET_ENVIRONMENT=${DOTNET_ENVIRONMENT}
       - Serilog__WriteTo__1__Args__endpoint=${OTEL_EXPORTER_OTLP_ENDPOINT}
@@ -13,25 +13,11 @@ services:
     networks:
       - rscore-network
 
-  consumer-b:
+  consumer-match-event-b:
     build:
       context: ..
       dockerfile: ./docker/Dockerfile
-    container_name: consumer-b
-    environment:
-      - DOTNET_ENVIRONMENT=${DOTNET_ENVIRONMENT}
-      - Serilog__WriteTo__1__Args__endpoint=${OTEL_EXPORTER_OTLP_ENDPOINT}
-      - ConnectionStrings__Postgres=${POSTGRES_CONNECTION_STRING}
-      - KafkaOptions__Host=${KAFKA_HOST}
-      - OpenTelemetryOptions__Endpoint=${OTEL_EXPORTER_OTLP_ENDPOINT}
-    networks:
-      - rscore-network
-
-  consumer-c:
-    build:
-      context: ..
-      dockerfile: ./docker/Dockerfile
-    container_name: consumer-c
+    container_name: consumer-match-event-b
     environment:
       - DOTNET_ENVIRONMENT=${DOTNET_ENVIRONMENT}
       - Serilog__WriteTo__1__Args__endpoint=${OTEL_EXPORTER_OTLP_ENDPOINT}

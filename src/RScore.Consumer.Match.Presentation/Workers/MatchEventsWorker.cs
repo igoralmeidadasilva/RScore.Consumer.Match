@@ -16,7 +16,11 @@ internal sealed class MatchEventsWorker : BackgroundService
     private readonly KafkaOptions _kafkaOptions;
     private readonly ILogger<MatchEventsWorker> _logger;
 
-    public MatchEventsWorker(ILogger<MatchEventsWorker> logger, IConsumer<string, string> consumer, IOptions<KafkaOptions> kafkaOptions, IServiceScopeFactory scopeFactory)
+    public MatchEventsWorker(
+        ILogger<MatchEventsWorker> logger,
+        IConsumer<string, string> consumer,
+        IOptions<KafkaOptions> kafkaOptions,
+        IServiceScopeFactory scopeFactory)
     {
         _logger = logger;
         _consumer = consumer;
@@ -119,8 +123,6 @@ internal sealed class MatchEventsWorker : BackgroundService
     {
         var propagationContext = consumeResult.Message.Headers.ExtractTraceContext();
 
-        // Consumer, não Internal: este é o span de fronteira, linkado ao
-        // contexto de trace extraído do header Kafka (publicado pelo producer).
         using var span = Telemetry.Source.StartActivity(
             Telemetry.Activities.ConsumeProcessResult,
             ActivityKind.Consumer,
@@ -137,6 +139,7 @@ internal sealed class MatchEventsWorker : BackgroundService
         {
             var handler = scope.ServiceProvider.GetRequiredService<IMatchConsumerHandler>();
             var matchConsumerRequest = JsonSerializer.Deserialize<MatchConsumerRequest>(consumeResult.Message.Value);
+            
             await handler.ExecuteAsync(matchConsumerRequest!, stoppingToken);
         }
 

@@ -4,7 +4,6 @@ namespace RScore.Consumer.Match.Application.Features.MatchConsumer;
 
 public sealed record MatchConsumerRequest
 {
-    public Guid EventId { get; set; }
     public string ExternalEventId { get; set; } = string.Empty;
     public string ExternalMatchId { get; set; } = string.Empty;
     public EventType EventType { get; set; }
