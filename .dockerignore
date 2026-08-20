@@ -1,0 +1,9 @@
+**/.git
+**/.vs
+**/.vscode
+**/bin
+**/obj
+**/docker
+**/.gitignore
+README.md
+Makefile
