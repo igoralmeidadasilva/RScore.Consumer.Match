@@ -7,6 +7,8 @@ public sealed record MatchEvent
     public Guid Id { get; set; }
     public string ExternalEventId { get; set; } = string.Empty;
     public string ExternalMatchId { get; set; } = string.Empty;
+    public string ExternalHomeTeamId { get; set; } = string.Empty;
+    public string ExternalVisitorTeamId { get; set; } = string.Empty;
     public EventType EventType { get; set; }
     public int Minute { get; set; }
     public string Payload { get; set; } = string.Empty;
@@ -20,22 +22,25 @@ public sealed record MatchEvent
     /// </summary>
     public MatchEvent() { }
 
-    public MatchEvent(
+   public MatchEvent(
         string externalEventId,
         string externalMatchId,
+        string externalHomeTeamId,
+        string externalVisitorTeamId,
         EventType eventType,
         int minute,
         string payload,
-        DateTime receivedAt,
         string source)
     {
         Id = Guid.NewGuid();
         ExternalEventId = externalEventId;
         ExternalMatchId = externalMatchId;
+        ExternalHomeTeamId = externalHomeTeamId;
+        ExternalVisitorTeamId = externalVisitorTeamId;
         EventType = eventType;
         Minute = minute;
         Payload = payload;
-        ReceivedAt = receivedAt;
+        ReceivedAt = DateTime.UtcNow;
         Source = source;
     }
 }

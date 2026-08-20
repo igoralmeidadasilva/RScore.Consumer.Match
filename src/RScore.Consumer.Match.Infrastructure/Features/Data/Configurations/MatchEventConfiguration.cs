@@ -23,6 +23,14 @@ internal sealed class MatchEventConfiguration : IEntityTypeConfiguration<MatchEv
         builder.Property(x => x.ExternalMatchId)
             .HasColumnName("external_match_id")
             .IsRequired();
+
+        builder.Property(x => x.ExternalHomeTeamId)
+            .HasColumnName("external_home_team_id")
+            .IsRequired();
+
+        builder.Property(x => x.ExternalVisitorTeamId)
+            .HasColumnName("external_visitor_team_id")
+            .IsRequired();
         
         builder.Property(x => x.EventType)
             .HasColumnName("event_type")
