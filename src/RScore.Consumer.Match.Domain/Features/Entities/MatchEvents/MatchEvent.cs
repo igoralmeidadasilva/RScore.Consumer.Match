@@ -30,6 +30,7 @@ public sealed record MatchEvent
         EventType eventType,
         int minute,
         string payload,
+        DateTime receivedAt,
         string source)
     {
         Id = Guid.NewGuid();
@@ -40,7 +41,7 @@ public sealed record MatchEvent
         EventType = eventType;
         Minute = minute;
         Payload = payload;
-        ReceivedAt = DateTime.UtcNow;
+        ReceivedAt = receivedAt;
         Source = source;
     }
 }

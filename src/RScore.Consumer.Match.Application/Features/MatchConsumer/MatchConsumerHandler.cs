@@ -51,6 +51,8 @@ internal sealed class MatchConsumerHandler : IMatchConsumerHandler
             MatchEvent matchEvent = new(
                 request.ExternalEventId,
                 request.ExternalMatchId,
+                request.ExternalHomeTeamId,
+                request.ExternalVisitorTeamId,
                 request.EventType,
                 request.Minute,
                 request.Payload,

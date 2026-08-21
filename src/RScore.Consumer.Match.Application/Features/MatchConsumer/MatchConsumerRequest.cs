@@ -6,6 +6,8 @@ public sealed record MatchConsumerRequest
 {
     public string ExternalEventId { get; set; } = string.Empty;
     public string ExternalMatchId { get; set; } = string.Empty;
+    public string ExternalHomeTeamId { get; set; } = string.Empty;
+    public string ExternalVisitorTeamId { get; set; } = string.Empty;
     public EventType EventType { get; set; }
     public int Minute { get; set; }
     public string Payload { get; set; } = string.Empty;
